@@ -352,11 +352,14 @@ import random
 import os
 from datetime import datetime
 from typing import Dict, List
-
+from pathlib import Path
 
 import logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+BASE_DIR = Path(__file__).parent
+print(f"Base directory: {BASE_DIR}")
 
 app = FastAPI(title="TrustGuard AI Backend", version="1.1.0")
 
@@ -425,40 +428,44 @@ trustflow_plus = TrustFlowPlus()
 # UTILITIES
 # ================================
 def load_json(file: str, default):
-    logger.info(f"Trying to load file: {file}")
+    # Use the full path to the file
+    file_path = BASE_DIR / file
+    logger.info(f"Trying to load file: {file_path}")
     logger.info(f"Current working directory: {os.getcwd()}")
-    logger.info(f"Files in current directory: {os.listdir('.')}")
+    logger.info(f"Base directory: {BASE_DIR}")
+    logger.info(f"Files in base directory: {list(BASE_DIR.iterdir())}")
     
-    if os.path.exists(file):
-        logger.info(f"File {file} exists, attempting to read")
+    if file_path.exists():
+        logger.info(f"File {file_path} exists, attempting to read")
         try:
-            with open(file) as f:
+            with open(file_path) as f:
                 data = json.load(f)
-                logger.info(f"Successfully loaded {file}, data keys: {list(data.keys()) if isinstance(data, dict) else len(data)}")
+                logger.info(f"Successfully loaded {file_path}, data keys: {list(data.keys()) if isinstance(data, dict) else len(data)}")
                 return data
         except Exception as e:
-            logger.error(f"Error reading {file}: {e}")
+            logger.error(f"Error reading {file_path}: {e}")
     else:
-        logger.warning(f"File {file} does not exist, creating with default data")
+        logger.warning(f"File {file_path} does not exist, creating with default data")
         # Auto-create missing file with default content
         try:
-            with open(file, "w") as f:
+            with open(file_path, "w") as f:
                 json.dump(default, f, indent=2)
-            logger.info(f"Created {file} with default data")
+            logger.info(f"Created {file_path} with default data")
         except Exception as e:
-            logger.error(f"Could not create {file}: {e}")
+            logger.error(f"Could not create {file_path}: {e}")
     
     return default
 
-
 def save_json(file: str, data):
-    with open(file, "w") as f:
+    file_path = BASE_DIR / file
+    with open(file_path, "w") as f:
         json.dump(data, f, indent=2)
 
 
 
 
 # Also add a debug endpoint to check file status:
+# Update the debug endpoint:
 @app.get("/debug/files")
 def debug_files():
     try:
@@ -466,15 +473,18 @@ def debug_files():
         files_to_check = ["users.json", "ads.json", "blocked_ads.json", "user_blocked_ads.json", "feedback.json", "user_preferences.json"]
         
         for file in files_to_check:
+            file_path = BASE_DIR / file
             files_status[file] = {
-                "exists": os.path.exists(file),
-                "size": os.path.getsize(file) if os.path.exists(file) else 0,
-                "readable": os.access(file, os.R_OK) if os.path.exists(file) else False
+                "exists": file_path.exists(),
+                "size": file_path.stat().st_size if file_path.exists() else 0,
+                "readable": os.access(file_path, os.R_OK) if file_path.exists() else False,
+                "full_path": str(file_path)
             }
         
         return {
             "current_directory": os.getcwd(),
-            "files_in_directory": os.listdir('.'),
+            "base_directory": str(BASE_DIR),
+            "files_in_base_directory": [str(p.name) for p in BASE_DIR.iterdir()],
             "files_status": files_status
         }
     except Exception as e:
