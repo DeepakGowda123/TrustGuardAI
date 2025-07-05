@@ -89,7 +89,7 @@ TrustGuardAI/
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/yourusername/TrustGuardAI.git
+   git clone https://github.com/DeepakGowda123/TrustGuardAI.git
    cd TrustGuardAI
    ```
 
@@ -141,11 +141,11 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 👥 Team
 
-- **Your Name** - *Full Stack Developer* - [GitHub](https://github.com/yourusername)
+- **Your Name** - *Full Stack Developer* - [GitHub](https://github.com/DeepakGowda123)
 
 ## 📞 Contact
 
-Project Link: [https://github.com/yourusername/TrustGuardAI](https://github.com/yourusername/TrustGuardAI)
+Project Link: [https://github.com/DeepakGowda123/TrustGuardAI](https://github.com/DeepakGowda123/TrustGuardAI)
 
 ## 🙏 Acknowledgments
 
