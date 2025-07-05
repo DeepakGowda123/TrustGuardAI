@@ -1,0 +1,32 @@
+{
+  "u1": {
+    "emotion_filter": true,
+    "personalization": true,
+    "explanations": true,
+    "data_collection": true
+  },
+  "u2": {
+    "emotion_filter": false,
+    "personalization": true,
+    "explanations": true,
+    "data_collection": true
+  },
+  "u3": {
+    "emotion_filter": false,
+    "personalization": true,
+    "explanations": true,
+    "data_collection": true
+  },
+  "u4": {
+    "emotion_filter": false,
+    "personalization": false,
+    "explanations": true,
+    "data_collection": true
+  },
+  "u5": {
+    "emotion_filter": true,
+    "personalization": true,
+    "explanations": true,
+    "data_collection": true
+  }
+}

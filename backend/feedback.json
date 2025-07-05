@@ -1,0 +1,58 @@
+{
+  "u3": [
+    {
+      "ad_title": "Beach Vacation Deal",
+      "feedback": "up",
+      "emotion": "relaxed",
+      "timestamp": "2025-07-04T12:18:44.531887"
+    },
+    {
+      "ad_title": "Affordable Yoga Mats",
+      "feedback": "down",
+      "emotion": "stressed",
+      "timestamp": "2025-07-04T12:19:13.422559"
+    }
+  ],
+  "u2": [
+    {
+      "ad_title": "Affordable Yoga Mats",
+      "feedback": "up",
+      "emotion": "stressed",
+      "timestamp": "2025-07-04T13:07:59.198552"
+    },
+    {
+      "ad_title": "Beach Vacation Deal",
+      "feedback": "down",
+      "emotion": "relaxed",
+      "timestamp": "2025-07-04T13:08:28.838696"
+    }
+  ],
+  "u4": [
+    {
+      "ad_title": "Beach Vacation Deal",
+      "feedback": "block",
+      "timestamp": "2025-07-05T13:44:07.969056",
+      "emotion": "relaxed"
+    },
+    {
+      "ad_title": "Affordable Yoga Mats",
+      "feedback": "block",
+      "timestamp": "2025-07-05T13:45:14.644621",
+      "emotion": "stressed"
+    }
+  ],
+  "u1": [
+    {
+      "ad_title": "Beach Vacation Deal",
+      "feedback": "up",
+      "timestamp": "2025-07-05T06:15:17.457340",
+      "emotion": "relaxed"
+    },
+    {
+      "ad_title": "Affordable Yoga Mats",
+      "feedback": "up",
+      "timestamp": "2025-07-05T14:55:46.801769",
+      "emotion": "stressed"
+    }
+  ]
+}

@@ -1,0 +1,23 @@
+{
+    "u1": {
+      "name": "Priya",
+      "status": "stressed"
+    },
+    "u2": {
+      "name": "Rahul",
+      "status": "neutral"
+    },
+    "u3": {
+      "name": "Deepak",
+      "status": "neutral"
+    },
+    "u4": {
+      "name": "Prajwal",
+      "status": "stressed"
+    },
+    "u5": {
+      "name": "Varun",
+      "status": "stressed"
+    }
+  }
+  
