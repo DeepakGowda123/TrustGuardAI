@@ -58,4 +58,48 @@ Online users are increasingly concerned about **data privacy** and **unwanted ad
 ---
 
 ## 📁 Directory Structure
+TrustGuardAI/
+├── backend/
+│ ├── main.py
+│ ├── ads.json
+│ ├── blocked_ads.json
+│ ├── feedback.json
+│ ├── user_blocked_ads.json
+│ ├── user_preferences.json
+│ └── users.json
+├── frontend/
+│ ├── public/
+│ │ ├── index.html
+│ │ └── ...
+│ ├── src/
+│ │ ├── components/
+│ │ │ ├── ConsentScreen.jsx
+│ │ │ ├── AdCard.jsx
+│ │ │ ├── AdminDashboard.jsx
+│ │ │ ├── PreferencesPanel.jsx
+│ │ ├── App.js
+│ │ ├── index.js
+│ │ └── index.css
+└── README.md
 
+
+## 🧭 Architecture Overview
+
+- **Frontend** communicates via REST APIs with the **FastAPI backend**
+- Data is stored in lightweight `.json` files (mock DB)
+- Admin dashboard fetches real-time analytics
+- Uses browser `localStorage` to preserve preferences
+
+
+## 🚀 Future Enhancements
+
+- Migrate JSON files to a database (e.g., MongoDB or PostgreSQL)
+- Add AI personalization using NLP
+- Create browser extension packaging
+- Add OAuth login or SSO support
+
+---
+
+## 🏁 License
+
+MIT License — free to use with attribution
