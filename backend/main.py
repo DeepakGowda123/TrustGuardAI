@@ -343,8 +343,6 @@
 
 
 
-
-
 from fastapi import FastAPI, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 import json
@@ -358,7 +356,19 @@ import logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-BASE_DIR = Path(__file__).parent
+# Check if we're on Render or local
+IS_RENDER = os.environ.get('RENDER') is not None
+
+if IS_RENDER:
+    # On Render, try to use a writable directory
+    BASE_DIR = Path('/tmp/trustguard_data')  # Use /tmp for temporary writable storage
+    BASE_DIR.mkdir(parents=True, exist_ok=True)
+    logger.info(f"Running on Render, using temporary directory: {BASE_DIR}")
+else:
+    # Local development
+    BASE_DIR = Path(__file__).parent
+    logger.info(f"Running locally, using: {BASE_DIR}")
+
 print(f"Base directory: {BASE_DIR}")
 
 app = FastAPI(title="TrustGuard AI Backend", version="1.1.0")
@@ -425,47 +435,85 @@ empathy_engine = EmpathyEngine()
 trustflow_plus = TrustFlowPlus()
 
 # ================================
-# UTILITIES
+# UTILITIES WITH BETTER ERROR HANDLING
 # ================================
-def load_json(file: str, default):
-    # Use the full path to the file
+def get_default_data(filename: str):
+    """Get default data for each JSON file"""
+    defaults = {
+        "users.json": {
+            "u1": {"name": "Alice", "status": "neutral", "age": 25, "location": "Mumbai"},
+            "u2": {"name": "Bob", "status": "stressed", "age": 30, "location": "Delhi"},
+            "u3": {"name": "Carol", "status": "happy", "age": 28, "location": "Bangalore"}
+        },
+        "ads.json": [
+            {"title": "Budget Smartphone", "category": "tech", "target_audience": "neutral", "explanation": "Great value for money"},
+            {"title": "Luxury Watch", "category": "luxury", "target_audience": "stressed", "explanation": "Treat yourself"},
+            {"title": "Meditation App", "category": "wellness", "target_audience": "anxious", "explanation": "Find your peace"}
+        ],
+        "feedback.json": {},
+        "blocked_ads.json": [],
+        "user_blocked_ads.json": {},
+        "user_preferences.json": {}
+    }
+    return defaults.get(filename, {})
+
+def load_json(file: str, default=None):
+    """Load JSON with better error handling and default data"""
+    if default is None:
+        default = get_default_data(file)
+    
     file_path = BASE_DIR / file
     logger.info(f"Trying to load file: {file_path}")
-    logger.info(f"Current working directory: {os.getcwd()}")
-    logger.info(f"Base directory: {BASE_DIR}")
-    logger.info(f"Files in base directory: {list(BASE_DIR.iterdir())}")
     
     if file_path.exists():
         logger.info(f"File {file_path} exists, attempting to read")
         try:
-            with open(file_path) as f:
+            with open(file_path, 'r', encoding='utf-8') as f:
                 data = json.load(f)
-                logger.info(f"Successfully loaded {file_path}, data keys: {list(data.keys()) if isinstance(data, dict) else len(data)}")
+                logger.info(f"Successfully loaded {file_path}")
                 return data
         except Exception as e:
             logger.error(f"Error reading {file_path}: {e}")
+            logger.info(f"Using default data for {file}")
+            return default
     else:
-        logger.warning(f"File {file_path} does not exist, creating with default data")
-        # Auto-create missing file with default content
-        try:
-            with open(file_path, "w") as f:
-                json.dump(default, f, indent=2)
+        logger.warning(f"File {file_path} does not exist, using default data")
+        # Try to create the file with default data
+        save_success = save_json(file, default)
+        if save_success:
             logger.info(f"Created {file_path} with default data")
-        except Exception as e:
-            logger.error(f"Could not create {file_path}: {e}")
-    
-    return default
+        else:
+            logger.warning(f"Could not create {file_path}, using in-memory default")
+        return default
 
-def save_json(file: str, data):
+def save_json(file: str, data) -> bool:
+    """Save JSON with proper error handling"""
     file_path = BASE_DIR / file
-    with open(file_path, "w") as f:
-        json.dump(data, f, indent=2)
+    try:
+        # Ensure directory exists
+        file_path.parent.mkdir(parents=True, exist_ok=True)
+        
+        # Write to temporary file first, then move (atomic operation)
+        temp_file = file_path.with_suffix('.tmp')
+        with open(temp_file, 'w', encoding='utf-8') as f:
+            json.dump(data, f, indent=2, ensure_ascii=False)
+        
+        # Move temp file to actual file
+        temp_file.replace(file_path)
+        
+        logger.info(f"Successfully saved {file_path}")
+        return True
+    except Exception as e:
+        logger.error(f"Failed to save {file_path}: {e}")
+        logger.error(f"Error type: {type(e).__name__}")
+        logger.error(f"Current working directory: {os.getcwd()}")
+        logger.error(f"Base directory exists: {BASE_DIR.exists()}")
+        logger.error(f"Base directory writable: {os.access(BASE_DIR, os.W_OK)}")
+        return False
 
-
-
-
-# Also add a debug endpoint to check file status:
-# Update the debug endpoint:
+# ================================
+# DEBUG ENDPOINTS
+# ================================
 @app.get("/debug/files")
 def debug_files():
     try:
@@ -478,19 +526,22 @@ def debug_files():
                 "exists": file_path.exists(),
                 "size": file_path.stat().st_size if file_path.exists() else 0,
                 "readable": os.access(file_path, os.R_OK) if file_path.exists() else False,
+                "writable": os.access(file_path, os.W_OK) if file_path.exists() else False,
                 "full_path": str(file_path)
             }
         
         return {
+            "is_render": IS_RENDER,
             "current_directory": os.getcwd(),
             "base_directory": str(BASE_DIR),
-            "files_in_base_directory": [str(p.name) for p in BASE_DIR.iterdir()],
+            "base_dir_exists": BASE_DIR.exists(),
+            "base_dir_writable": os.access(BASE_DIR, os.W_OK),
+            "files_in_base_directory": [str(p.name) for p in BASE_DIR.iterdir()] if BASE_DIR.exists() else [],
             "files_status": files_status
         }
     except Exception as e:
         return {"error": str(e)}
 
-# Add another debug endpoint to check users data:
 @app.get("/debug/users")
 def debug_users():
     try:
@@ -503,6 +554,35 @@ def debug_users():
     except Exception as e:
         return {"error": str(e)}
 
+@app.get("/debug/write-test")
+def test_write():
+    """Test if we can write to the file system"""
+    try:
+        test_file = BASE_DIR / "test_write.json"
+        test_data = {"test": "data", "timestamp": str(datetime.now())}
+        
+        success = save_json("test_write.json", test_data)
+        
+        if success and test_file.exists():
+            # Try to read it back
+            with open(test_file, "r") as f:
+                data = json.load(f)
+            
+            return {
+                "success": True, 
+                "data": data, 
+                "path": str(test_file),
+                "message": "Write test successful"
+            }
+        else:
+            return {
+                "success": False, 
+                "error": "Could not write file",
+                "path": str(test_file)
+            }
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
 # ================================
 # MAIN ENDPOINTS
 # ================================
@@ -514,7 +594,9 @@ def root():
 def health_check():
     return {
         "status": "healthy",
-        "timestamp": datetime.now().isoformat()
+        "timestamp": datetime.now().isoformat(),
+        "is_render": IS_RENDER,
+        "base_dir": str(BASE_DIR)
     }
 
 @app.get("/ads/{user_id}")
@@ -577,6 +659,7 @@ def get_ad_with_ai(user_id: str):
 
     except Exception as e:
         return {"error": str(e)}
+
 @app.post("/feedback")
 async def receive_feedback(request: Request):
     try:
@@ -584,7 +667,7 @@ async def receive_feedback(request: Request):
         user_id, ad_title, feedback = data["user_id"], data["ad_title"], data["feedback"]
         emotion = data.get("emotion", "neutral")
 
-        # ✅ Check if user opted out of data collection
+        # Check if user opted out of data collection
         user_preferences = load_json("user_preferences.json", {})
         prefs = user_preferences.get(user_id, {
             "data_collection": True
@@ -596,7 +679,7 @@ async def receive_feedback(request: Request):
                 "message": "User has opted out of data collection. Feedback not saved."
             }
 
-        # ✅ Continue as usual
+        # Continue as usual
         ads = load_json("ads.json", [])
         ad = next((a for a in ads if a["title"] == ad_title), None)
         if ad and not emotion:
@@ -625,7 +708,11 @@ async def receive_feedback(request: Request):
             "timestamp": datetime.now().isoformat(),
             "emotion": emotion
         })
-        save_json("feedback.json", feedback_data)
+        
+        save_success = save_json("feedback.json", feedback_data)
+        if not save_success:
+            logger.error("Failed to save feedback data")
+            return {"error": "Failed to save feedback data"}
 
         if feedback == "block":
             blocked = load_json("user_blocked_ads.json", {})
@@ -645,13 +732,13 @@ async def receive_feedback(request: Request):
         return {
             "status": "success",
             "message": "Feedback recorded.",
-            "stats": {"up": up, "down": down, "block": block}
+            "stats": {"up": up, "down": down, "block": block},
+            "save_success": save_success
         }
 
     except Exception as e:
+        logger.error(f"Error in feedback endpoint: {e}")
         return {"error": str(e)}
-
-
 
 @app.post("/set_preferences")
 async def set_user_preferences(request: Request):
@@ -674,12 +761,19 @@ async def set_user_preferences(request: Request):
             "data_collection": data_collection
         }
 
-        save_json("user_preferences.json", prefs)
-        return {"status": "success", "preferences": prefs[user_id]}
+        save_success = save_json("user_preferences.json", prefs)
+        if not save_success:
+            logger.error("Failed to save user preferences")
+            return {"error": "Failed to save user preferences"}
+
+        return {
+            "status": "success", 
+            "preferences": prefs[user_id],
+            "save_success": save_success
+        }
     except Exception as e:
+        logger.error(f"Error in set_preferences endpoint: {e}")
         return {"error": str(e)}
-
-
 
 @app.get("/get_preferences/{user_id}")
 def get_user_preferences(user_id: str):
@@ -688,7 +782,7 @@ def get_user_preferences(user_id: str):
         "emotion_filter": True,
         "personalization": True,
         "explanations": True,
-        "data_collection": True  # ✅ Add this
+        "data_collection": True
     })
 
 # ================================
@@ -729,7 +823,9 @@ async def block_ad_globally(request: Request):
         blocked = load_json("blocked_ads.json", [])
         if ad_title not in blocked:
             blocked.append(ad_title)
-            save_json("blocked_ads.json", blocked)
+            save_success = save_json("blocked_ads.json", blocked)
+            if not save_success:
+                return {"error": "Failed to save blocked ads"}
         return {"status": "success", "blocked": ad_title}
     except Exception as e:
         return {"error": str(e)}
@@ -743,12 +839,14 @@ async def block_ad_for_user(request: Request):
         user_blocked.setdefault(user_id, [])
         if ad_title not in user_blocked[user_id]:
             user_blocked[user_id].append(ad_title)
-        save_json("user_blocked_ads.json", user_blocked)
+        save_success = save_json("user_blocked_ads.json", user_blocked)
+        if not save_success:
+            return {"error": "Failed to save user blocked ads"}
         return {"status": "success", "user_id": user_id, "blocked": ad_title}
     except Exception as e:
         return {"error": str(e)}
 
 if __name__ == "__main__":
     import uvicorn
-    port = int(os.environ.get("PORT", 10000))  # Render provides PORT env variable
+    port = int(os.environ.get("PORT", 10000))
     uvicorn.run(app, host="0.0.0.0", port=port)
