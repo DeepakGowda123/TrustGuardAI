@@ -38,12 +38,21 @@ async def supabase_insert(table: str, data: dict):
         try:
             response = await client.post(url, headers=HEADERS, json=data)
             response.raise_for_status()
-            print(f"✅ Inserted into {table}: {data}")
-            return response.json()
+
+            # ✅ Handle cases where response body is empty
+            if response.text.strip():
+                print(f"✅ Inserted into {table}: {data}")
+                return response.json()
+            else:
+                print(f"✅ Inserted into {table} (empty response body): {data}")
+                return {}
+
         except httpx.HTTPStatusError as e:
             print(f"❌ Error inserting into {table}: {e.response.status_code} - {e.response.text}")
             print(f"   Data: {data}")
             return None
+
+
 
 async def migrate_users():
     """Migrate users.json to users table"""
@@ -84,7 +93,8 @@ async def migrate_ads():
             "description": ad.get("description", ""),
             "category": ad.get("category", ""),
             "target_audience": ad.get("target_audience", "neutral"),
-            "explanation": ad.get("explanation", "")
+            "explanation": ad.get("explanation", ""),
+            "image_url": ad.get("image_url", "")
         })
     
     print(f"✅ Migrated {len(ads_data)} ads")

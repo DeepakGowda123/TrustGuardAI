@@ -4,11 +4,14 @@ import {
   BarChart, Bar, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer,
 } from "recharts";
 
+const API_URL = process.env.REACT_APP_API_URL;
+
+
 const FeedbackChart = ({ userId }) => {
   const [data, setData] = useState([]);
 
   useEffect(() => {
-    axios.get(`http://localhost:8000/feedback/${userId}/summary`)
+    axios.get(`${API_URL}/feedback/${userId}/summary`)
       .then(res => {
         const transformed = Object.entries(res.data).map(([title, counts]) => ({
           ad: title,

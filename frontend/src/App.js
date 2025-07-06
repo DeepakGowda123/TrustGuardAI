@@ -7,6 +7,9 @@ import AdminDashboard from "./components/AdminDashboard";
 import ConsentScreen from "./components/ConsentScreen";
 import PreferencesPanel from "./components/PreferencesPanel";
 
+
+const API_URL = process.env.REACT_APP_API_URL;
+
 function App() {
   const [userId, setUserId] = useState("u1");
 
@@ -49,7 +52,7 @@ function App() {
 
     const fetchAd = async () => {
       try {
-        const res = await axios.get(`http://localhost:8000/ads/${userId}`, {
+        const res = await axios.get(`${API_URL}/ads/${userId}`, {
           params: {
             emotion_filter: userPreferences.emotionFilter,
             personalized: userPreferences.personalizedAds,
@@ -72,7 +75,7 @@ function App() {
     const sendFeedback = async () => {
       try {
         if (userPreferences.dataCollection) {
-          const res = await axios.post("http://localhost:8000/feedback", {
+          const res = await axios.post(`${API_URL}/feedback`, {
             user_id: userId,
             ad_title: ad.title,
             feedback,
@@ -104,7 +107,7 @@ function App() {
     setIsLoadingNextAd(true);
     setTimeout(async () => {
       try {
-        const res = await axios.get(`http://localhost:8000/ads/${userId}`, {
+        const res = await axios.get(`${API_URL}/ads/${userId}`, {
           params: {
             emotion_filter: userPreferences.emotionFilter,
             personalized: userPreferences.personalizedAds,

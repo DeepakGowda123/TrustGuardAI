@@ -1,5 +1,9 @@
 import React, { useState, useEffect } from "react";
 
+
+const API_URL = process.env.REACT_APP_API_URL;
+
+
 const PreferencesPanel = ({ isOpen, onClose, userId, userPreferences, onPreferencesUpdate }) => {
   const [preferences, setPreferences] = useState({
     emotionFilter: true,
@@ -37,7 +41,7 @@ const PreferencesPanel = ({ isOpen, onClose, userId, userPreferences, onPreferen
       };
   
       // Send to backend
-      const response = await fetch("http://localhost:8000/set_preferences", {
+      const response = await fetch(`${API_URL}/set_preferences`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

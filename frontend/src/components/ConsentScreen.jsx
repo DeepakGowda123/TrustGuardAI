@@ -1,5 +1,8 @@
 import React, { useState } from "react";
 
+const API_URL = process.env.REACT_APP_API_URL;
+
+
 const ConsentScreen = ({ onConsent, userId }) => {
   const [selectedPreferences, setSelectedPreferences] = useState({
     emotionFilter: true,
@@ -10,7 +13,7 @@ const ConsentScreen = ({ onConsent, userId }) => {
 
   const handleConsentSubmit = async () => {
     try {
-      const response = await fetch("http://localhost:8000/set_preferences", {
+      const response = await fetch(`${API_URL}/set_preferences`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

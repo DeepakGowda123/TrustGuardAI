@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from 'recharts';
 
+const API_URL = process.env.REACT_APP_API_URL;
+
 const AdminDashboard = () => {
   const [feedback, setFeedback] = useState([]);
   const [grouped, setGrouped] = useState({});
@@ -13,41 +15,56 @@ const AdminDashboard = () => {
     const fetchData = async () => {
       try {
         // Fetch feedback
-        const feedbackRes = await fetch("http://localhost:8000/feedback");
+        const feedbackRes = await fetch(`${API_URL}/feedback`);
         const feedbackData = await feedbackRes.json();
-        setGrouped(feedbackData);
-
-        const flattened = [];
-        Object.entries(feedbackData).forEach(([user, entries]) => {
-          entries.forEach((entry) => {
-            flattened.push({ ...entry, user });
+        console.log("Raw feedback response:", feedbackData);
+        
+        // Check if feedbackData is an array (which it should be from your backend)
+        if (Array.isArray(feedbackData)) {
+          setFeedback(feedbackData);
+          
+          // Group feedback by user_id
+          const groupedByUser = feedbackData.reduce((acc, entry) => {
+            const userId = entry.user_id;
+            if (!acc[userId]) {
+              acc[userId] = [];
+            }
+            acc[userId].push(entry);
+            return acc;
+          }, {});
+          
+          setGrouped(groupedByUser);
+          
+          // Get unique users from feedback data
+          const users = [...new Set(feedbackData.map(entry => entry.user_id))];
+          
+          // Fetch user analytics for all users with feedback
+          const analyticsPromises = users.map(async (userId) => {
+            try {
+              const res = await fetch(`${API_URL}/analytics/user/${userId}`);
+              const data = await res.json();
+              return { userId, ...data };
+            } catch (err) {
+              console.error(`Failed to fetch analytics for user ${userId}:`, err);
+              return null;
+            }
           });
-        });
-        setFeedback(flattened);
+          const analyticsResults = await Promise.all(analyticsPromises);
+          const analyticsData = analyticsResults.filter(result => result !== null);
+          setUserAnalytics(analyticsData);
+
+          // Calculate system statistics
+          calculateSystemStats(feedbackData, analyticsData);
+        } else {
+          console.error("Feedback data is not an array:", feedbackData);
+          setFeedback([]);
+          setGrouped({});
+        }
 
         // Fetch blocked ads
-        const blockedRes = await fetch("http://localhost:8000/blocked_ads");
+        const blockedRes = await fetch(`${API_URL}/blocked_ads`);
         const blockedData = await blockedRes.json();
-        setBlockedAds(Array.isArray(blockedData) ? blockedData : blockedData.blocked_ads || []);
-
-        // Fetch user analytics for all users with feedback
-        const users = Object.keys(feedbackData);
-        const analyticsPromises = users.map(async (userId) => {
-          try {
-            const res = await fetch(`http://localhost:8000/analytics/user/${userId}`);
-            const data = await res.json();
-            return { userId, ...data };
-          } catch (err) {
-            console.error(`Failed to fetch analytics for user ${userId}:`, err);
-            return null;
-          }
-        });
-        const analyticsResults = await Promise.all(analyticsPromises);
-        const analyticsData = analyticsResults.filter(result => result !== null);
-        setUserAnalytics(analyticsData);
-
-        // Calculate system statistics
-        calculateSystemStats(flattened, analyticsData);
+        setBlockedAds(Array.isArray(blockedData) ? blockedData : []);
         
       } catch (err) {
         console.error("Failed to fetch data:", err);
@@ -100,6 +117,8 @@ const AdminDashboard = () => {
     return adStats;
   };
 
+  console.log("feedback data", feedback);
+
   const adStats = countVotes(feedback);
   const mostLikedAd = Object.entries(adStats).sort((a, b) => b[1].up - a[1].up)[0];
   const mostDislikedAd = Object.entries(adStats).sort((a, b) => b[1].down - a[1].down)[0];
@@ -109,7 +128,7 @@ const AdminDashboard = () => {
     if (blockedAds.includes(adTitle)) return;
 
     try {
-      const res = await fetch("http://localhost:8000/block_ad", {
+      const res = await fetch(`${API_URL}/block_ad`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ad_title: adTitle }),
@@ -382,11 +401,11 @@ const AdminDashboard = () => {
               <h4 className="font-bold mb-3 text-gray-800">
                 User: {user}
                 <span className="ml-2 text-sm text-gray-500">
-                  ({items.length} interactions)
+                  ({Array.isArray(items) ? items.length : 0} interactions)
                 </span>
               </h4>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                {items.map((entry, idx) => (
+                {Array.isArray(items) ? items.map((entry, idx) => (
                   <div key={idx} className="flex justify-between items-center bg-gray-50 p-2 rounded text-sm">
                     <span className="text-gray-700">📝 {entry.ad_title}</span>
                     <div className="flex items-center">
@@ -400,7 +419,9 @@ const AdminDashboard = () => {
                       </span>
                     </div>
                   </div>
-                ))}
+                )) : (
+                  <p className="text-gray-500">No feedback data available</p>
+                )}
               </div>
             </div>
           ))}
