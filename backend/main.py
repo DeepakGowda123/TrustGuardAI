@@ -342,7 +342,6 @@
 
 
 
-
 from fastapi import FastAPI, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 import json
@@ -469,12 +468,20 @@ def load_json(file: str, default=None):
         logger.info(f"File {file_path} exists, attempting to read")
         try:
             with open(file_path, 'r', encoding='utf-8') as f:
-                data = json.load(f)
+                content = f.read().strip()
+                if not content or content == '{}' or content == '[]':
+                    logger.warning(f"File {file_path} is empty, using default data")
+                    # Save default data to the empty file
+                    save_json(file, default)
+                    return default
+                data = json.loads(content)
                 logger.info(f"Successfully loaded {file_path}")
                 return data
         except Exception as e:
             logger.error(f"Error reading {file_path}: {e}")
             logger.info(f"Using default data for {file}")
+            # Save default data to fix corrupted file
+            save_json(file, default)
             return default
     else:
         logger.warning(f"File {file_path} does not exist, using default data")
@@ -582,6 +589,48 @@ def test_write():
             }
     except Exception as e:
         return {"success": False, "error": str(e)}
+
+@app.get("/debug/initialize-data")
+def initialize_default_data():
+    """Force initialize all JSON files with default data"""
+    try:
+        files_to_init = ["users.json", "ads.json", "blocked_ads.json", "user_blocked_ads.json", "feedback.json", "user_preferences.json"]
+        results = {}
+        
+        for file in files_to_init:
+            default_data = get_default_data(file)
+            success = save_json(file, default_data)
+            results[file] = {
+                "success": success,
+                "data_size": len(str(default_data)),
+                "default_data": default_data
+            }
+        
+        return {
+            "message": "Data initialization attempted",
+            "results": results
+        }
+    except Exception as e:
+        return {"error": str(e)}
+
+@app.get("/debug/check-data")
+def check_current_data():
+    """Check what's currently in each file"""
+    try:
+        files_to_check = ["users.json", "ads.json", "blocked_ads.json", "user_blocked_ads.json", "feedback.json", "user_preferences.json"]
+        results = {}
+        
+        for file in files_to_check:
+            data = load_json(file)
+            results[file] = {
+                "data": data,
+                "type": type(data).__name__,
+                "size": len(data) if isinstance(data, (dict, list)) else 0
+            }
+        
+        return results
+    except Exception as e:
+        return {"error": str(e)}
 
 # ================================
 # MAIN ENDPOINTS
