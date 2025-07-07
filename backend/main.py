@@ -516,7 +516,7 @@ async def block_ad_for_user(user_id: str, ad_title: str):
     data = {
         "user_id": user_id,
         "ad_title": ad_title,
-        "blocked_at": datetime.now().isoformat()
+        # "blocked_at": datetime.now().isoformat()
     }
     result = await supabase_request("POST", "user_blocked_ads", data)
     logger.info(f"Blocked ad '{ad_title}' for user '{user_id}': {result}")
@@ -526,7 +526,7 @@ async def block_ad_globally(ad_title: str):
     """Block ad globally"""
     data = {
         "ad_title": ad_title,
-        "blocked_at": datetime.now().isoformat()
+        # "blocked_at": datetime.now().isoformat()
     }
     await supabase_request("POST", "blocked_ads", data)
 
