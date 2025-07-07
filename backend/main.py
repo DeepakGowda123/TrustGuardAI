@@ -518,7 +518,9 @@ async def block_ad_for_user(user_id: str, ad_title: str):
         "ad_title": ad_title,
         "blocked_at": datetime.now().isoformat()
     }
-    await supabase_request("POST", "user_blocked_ads", data)
+    result = await supabase_request("POST", "user_blocked_ads", data)
+    logger.info(f"Blocked ad '{ad_title}' for user '{user_id}': {result}")
+    return result
 
 async def block_ad_globally(ad_title: str):
     """Block ad globally"""
@@ -528,10 +530,24 @@ async def block_ad_globally(ad_title: str):
     }
     await supabase_request("POST", "blocked_ads", data)
 
+
+
 async def check_feedback_exists(user_id: str, ad_title: str):
     """Check if feedback already exists for this user and ad"""
-    result = await supabase_request("GET", "feedback", params={"user_id": user_id})
-    return any(item["ad_title"] == ad_title for item in result)
+    # FIXED: Use proper Supabase query parameters to filter by both user_id and ad_title
+    url = f"{SUPABASE_URL}/rest/v1/feedback?user_id=eq.{user_id}&ad_title=eq.{ad_title}"
+    
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.get(url, headers=HEADERS)
+            response.raise_for_status()
+            result = response.json()
+            return len(result) > 0
+    except Exception as e:
+        logger.error(f"Error checking feedback exists: {e}")
+        return False
+
+
 
 async def get_ad_feedback_stats(ad_title: str):
     """Get feedback statistics for a specific ad"""
@@ -646,7 +662,7 @@ async def get_ad_with_ai(user_id: str):
 
         selected_ad = random.choice(final_ads)
 
-        # Handle personalization logic
+        # Handle personalization logic - TrustFlow+
         if user_preferences["personalization"]:
             trust_analysis = trustflow_plus.predict_ad_expectation(user, selected_ad)
             explanation = trustflow_plus.generate_explanation(user, selected_ad) if user_preferences["explanations"] and trust_analysis["explanation_needed"] else ""
@@ -699,7 +715,8 @@ async def receive_feedback(request: Request):
                 emotion = ad.get("target_audience", "neutral")
 
         # Check for duplicate feedback
-        if await check_feedback_exists(user_id, ad_title):
+        feedback_exists = await check_feedback_exists(user_id, ad_title)
+        if feedback_exists:
             stats = await get_ad_feedback_stats(ad_title)
             return {
                 "status": "duplicate",
@@ -709,20 +726,28 @@ async def receive_feedback(request: Request):
 
         # Save feedback
         await save_feedback(user_id, ad_title, feedback, emotion)
+        logger.info(f"Feedback saved: user={user_id}, ad={ad_title}, feedback={feedback}")
 
-        # Handle blocking
+        # FIXED: Handle blocking - Now with proper error handling and logging
         if feedback == "block":
-            await block_ad_for_user(user_id, ad_title)
+            try:
+                block_result = await block_ad_for_user(user_id, ad_title)
+                logger.info(f"Successfully blocked ad '{ad_title}' for user '{user_id}'")
+            except Exception as block_error:
+                logger.error(f"Error blocking ad for user: {block_error}")
+                # Still continue with feedback response even if blocking fails
+
 
         # Get updated stats
         stats = await get_ad_feedback_stats(ad_title)
 
         return {
             "status": "success",
-            "message": "Feedback recorded.",
-            "stats": stats
+            "message": "Feedback recorded successfully." + (" Ad blocked for future." if feedback == "block" else ""),
+            "stats": stats,
+            "blocked": feedback == "block"
         }
-
+    
     except Exception as e:
         logger.error(f"Error in receive_feedback: {str(e)}")
         return {"error": str(e)}
@@ -842,6 +867,32 @@ async def debug_supabase():
         }
     except Exception as e:
         return {"error": str(e)}
+    
+
+
+# ================================
+# NEW DEBUG ENDPOINT FOR TESTING BLOCK FUNCTIONALITY
+# ================================
+@app.get("/debug/user_blocked_ads/{user_id}")
+async def debug_user_blocked_ads(user_id: str):
+    """Debug endpoint to check user's blocked ads"""
+    try:
+        blocked_ads = await get_user_blocked_ads(user_id)
+        
+        # Also get raw data from the table
+        raw_data = await supabase_request("GET", "user_blocked_ads", params={"user_id": user_id})
+        
+        return {
+            "user_id": user_id,
+            "blocked_ads_list": blocked_ads,
+            "raw_blocked_data": raw_data,
+            "total_blocked": len(blocked_ads)
+        }
+    except Exception as e:
+        logger.error(f"Error in debug_user_blocked_ads: {str(e)}")
+        return {"error": str(e)}
+
+
 
 if __name__ == "__main__":
     import uvicorn
